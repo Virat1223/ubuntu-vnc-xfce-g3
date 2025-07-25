@@ -1,4 +1,4 @@
-name: Ubuntu XFCE Desktop via noVNC + LocalXpose
+name: Ubuntu XFCE Desktop with noVNC + LocalXpose
 
 on: [workflow_dispatch]
 
@@ -14,18 +14,19 @@ jobs:
           -p 6901:6901 \
           accetto/ubuntu-vnc-xfce-g3
 
-    - name: Install LocalXpose
+    - name: Download and install LocalXpose
       run: |
         wget -O loclx.deb https://api.localxpose.io/api/downloads/loclx-linux-amd64.deb
         sudo dpkg -i loclx.deb || sudo apt --fix-broken install -y
 
-    - name: Authenticate LocalXpose
+    - name: Authenticate with LocalXpose
       run: |
         loclx authtoken DgN6KiykIQ1cb7XvcoaYz2AXX68yIwvUndjYfchQ
 
-    - name: Start tunnel for noVNC on port 6901
+    - name: Start LocalXpose tunnel to noVNC (port 6901)
       run: |
-        nohup loclx tunnel http --port 6901 --subdomain vipraxubuntu123 &
+        nohup loclx tunnel http --port 6901 --subdomain vipraxubuntu123 > tunnel.log 2>&1 &
 
-    - name: Keep job alive
-      run: tail -f /dev/null
+    - name: Keep the workflow alive
+      run: |
+        tail -f /dev/null
