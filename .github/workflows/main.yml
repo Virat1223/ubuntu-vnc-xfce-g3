@@ -1,27 +1,29 @@
-name: 🖥️ Ubuntu Desktop via LocalXpose
+name: 🚀 Cloud Ubuntu Desktop via LocalXpose
 
 on:
   workflow_dispatch:
 
 jobs:
-  run-desktop:
+  desktop:
     runs-on: ubuntu-latest
+    timeout-minutes: 360
+
     steps:
-      - name: 🚀 Start Ubuntu VNC Desktop (XFCE)
+      - name: Run Ubuntu XFCE Desktop Container
         run: |
           docker run -d \
             --name ubuntu-desktop \
             -p 6080:6080 \
             accetto/ubuntu-vnc-xfce-g3
 
-      - name: 💤 Wait for desktop to boot
-        run: sleep 15
+      - name: Wait for XFCE desktop services
+        run: sleep 15  # ensure container fully boots
 
-      - name: ⬇️ Download and setup LocalXpose
+      - name: Download LocalXpose CLI (correct binary)
         run: |
           wget -O lx https://github.com/localxpose/localxpose/releases/latest/download/localxpose-linux-amd64
           chmod +x lx
 
-      - name: 🌐 Start LocalXpose Tunnel
+      - name: Start LocalXpose Tunnel to expose noVNC
         run: |
           ./lx tunnel http --to 127.0.0.1:6080 --token DgN6KiykIQ1cb7XvcoaYz2AXX68yIwvUndjYfchQ
