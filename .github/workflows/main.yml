@@ -1,0 +1,30 @@
+name: Ubuntu GUI in Browser with noVNC
+
+on:
+  workflow_dispatch:
+
+jobs:
+  ubuntu-desktop:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      - name: Install Desktop + noVNC
+        run: |
+          sudo apt update
+          sudo apt install -y xfce4 xfce4-goodies tightvncserver novnc websockify kdenlive firefox
+
+          mkdir -p ~/.vnc
+          echo "password" | vncpasswd -f > ~/.vnc/passwd
+          chmod 600 ~/.vnc/passwd
+
+          vncserver :1 -geometry 1280x720 -depth 24
+
+          websockify --web=/usr/share/novnc/ 6080 localhost:5901 &
+          sleep 3
+          echo "noVNC started on port 6080"
+
+      - name: Serve with LocalXpose
+        run: |
+          curl -s https://raw.githubusercontent.com/localxpose/cli/main/install.sh | bash
+          ./lx tunnel http --port 6080 --to 80 --subdomain ubuntu-gui
