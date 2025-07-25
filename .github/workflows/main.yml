@@ -1,35 +1,49 @@
-name: 🚀 Cloud Ubuntu Desktop via LocalXpose
-
-on:
-  workflow_dispatch:
+name: Ubuntu VNC with LocalXpose
+on: [workflow_dispatch]
 
 jobs:
-  desktop:
+  ubuntu-vnc:
     runs-on: ubuntu-latest
-    timeout-minutes: 360
-
     steps:
-      - name: Run Ubuntu XFCE Desktop Container
-        run: |
-          docker run -d \
-            --name ubuntu-desktop \
-            -p 6080:6080 \
-            accetto/ubuntu-vnc-xfce-g3
 
-      - name: Wait for XFCE desktop services
-        run: sleep 15
+    - name: Set up environment
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y wget curl gnupg2 software-properties-common lsb-release
 
-      - name: Download LocalXpose CLI
-        run: |
-          wget -O lx.zip https://github.com/localxpose/localxpose/releases/download/v2.0.3/loclx-linux-amd64.zip
-          unzip lx.zip
-          chmod +x loclx
-          rm lx.zip
+    - name: Install XFCE, VNC, and websockify
+      run: |
+        sudo apt-get install -y xfce4 xfce4-goodies tightvncserver git python3-pip
+        pip install websockify
+        vncserver :1
+        vncserver -kill :1
 
-      - name: Start LocalXpose Tunnel
-        run: |
-          ./loclx tunnel http --to 127.0.0.1:6080 --token ${{ secrets.LOCALXPOSE_TOKEN }}
+    - name: Configure VNC
+      run: |
+        mkdir -p ~/.vnc
+        echo "#!/bin/bash\nxrdb $HOME/.Xresources\nstartxfce4 &" > ~/.vnc/xstartup
+        chmod +x ~/.vnc/xstartup
+        vncserver :1
 
-      - name: Get Tunnel URL
-        run: |
-          echo "Tunnel established at: $(./loclx tunnel list --token ${{ secrets.LOCALXPOSE_TOKEN }} | grep URL | awk '{print $2}')"
+    - name: Clone noVNC
+      run: |
+        git clone https://github.com/novnc/noVNC.git ~/noVNC
+        git clone https://github.com/novnc/websockify.git ~/noVNC/utils/websockify
+
+    - name: Start noVNC
+      run: |
+        nohup ~/noVNC/utils/novnc_proxy --vnc localhost:5901 --listen 6080 &
+
+    - name: Download and install LocalXpose
+      run: |
+        wget -O loclx.deb https://api.localxpose.io/api/downloads/loclx-linux-amd64.deb
+        sudo dpkg -i loclx.deb || sudo apt-get install -f -y
+
+    - name: Expose VNC noVNC web via LocalXpose
+      env:
+        LOCX_TOKEN: DgN6KiykIQ1cb7XvcoaYz2AXX68yIwvUndjYfchQ
+      run: |
+        nohup loclx tunnel http --to 127.0.0.1:6080 --token $LOCX_TOKEN > lx.log 2>&1 &
+
+    - name: Keep alive
+      run: sleep 3000
