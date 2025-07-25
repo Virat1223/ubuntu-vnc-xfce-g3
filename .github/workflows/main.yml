@@ -1,34 +1,41 @@
-name: Ubuntu GUI with Browser Access
+name: Ubuntu XFCE GUI with LocalXpose
 
-on: [workflow_dispatch]
+on:
+  workflow_dispatch:
 
 jobs:
   ubuntu-desktop:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Launch Ubuntu GUI via Docker (noVNC on :6080)
-        run: |
-          docker run -d \
-            -p 6080:80 \
-            -e VNC_PW='longsecurepass' \
-            --name ubuntu-desktop \
-            accetto/ubuntu-vnc-xfce-g3
+    - name: 🧱 Set up Docker
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y docker.io
 
-      - name: Install dependencies
-        run: sudo apt update && sudo apt install -y wget curl gdebi-core
+    - name: 🐧 Pull XFCE GUI Docker image
+      run: |
+        docker pull accetto/ubuntu-vnc-xfce-g3
 
-      - name: Download and install LocalXpose
-        run: |
-          wget -O loclx.deb https://api.localxpose.io/api/downloads/loclx-linux-amd64.deb
-          sudo gdebi -n loclx.deb
+    - name: 🚀 Run XFCE container with exposed VNC (port 6080)
+      run: |
+        docker run -d -p 6080:6080 --name xfce-gui accetto/ubuntu-vnc-xfce-g3
 
-      - name: Inject LocalXpose config with your auth token
-        run: |
-          mkdir -p ~/.config/localxpose
-          echo '{"auth_token":"DgN6KiykIQ1cb7XvcoaYz2AXX68yIwvUndjYfchQ"}' > ~/.config/localxpose/config.json
+    - name: 🌐 Install LocalXpose
+      run: |
+        curl -s https://api.localxpose.io/api/v2/downloads/localxpose_24.9.2_linux_amd64.deb --output loclx.deb
+        sudo dpkg -i loclx.deb
+        mkdir -p ~/.config/localxpose
 
-      - name: Start LocalXpose tunnel and keep alive
-        run: |
-          loclx tunnel http --to 127.0.0.1:6080 > tunnel.log 2>&1 &
-          echo "Tunnel started. Waiting..."
-          tail -f /dev/null
+    - name: 🔐 Authenticate LocalXpose
+      run: |
+        echo "${{ secrets.LOCALXPOSE_TOKEN }}" > ~/.config/localxpose/access.token
+
+    - name: 🛜 Start tunnel to expose port 6080
+      run: |
+        nohup loclx tunnel http --to 127.0.0.1:6080 > tunnel.log 2>&1 &
+        sleep 5
+        cat tunnel.log
+
+    - name: 🧾 Show tunnel logs with access link
+      run: cat tunnel.log
