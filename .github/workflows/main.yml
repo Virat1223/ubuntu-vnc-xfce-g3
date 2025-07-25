@@ -1,38 +1,43 @@
-name: Ubuntu XFCE Desktop in Browser (noVNC + LocalXpose)
+name: Ubuntu XFCE Desktop with noVNC + Kdenlive + LocalXpose
 
 on:
   workflow_dispatch:
 
 jobs:
-  launch:
+  run-desktop:
     runs-on: ubuntu-latest
 
     steps:
-    - name: 🧱 Setup LocalXpose
+    - name: Setup Docker
       run: |
-        sudo apt update -y
-        sudo apt install curl unzip -y
-        curl -s https://localxpose.io/get/linux -o lx
+        sudo apt update
+        sudo apt install docker.io -y
+
+    - name: Pull Desktop Image
+      run: |
+        docker pull accetto/ubuntu-vnc-xfce-g3
+
+    - name: Run Desktop with Tools
+      run: |
+        docker run -d \
+          --name vnc-desktop \
+          -p 6080:6080 \
+          accetto/ubuntu-vnc-xfce-g3 \
+          /bin/bash -c "apt update && apt install -y kdenlive gimp && startvnc"
+
+    - name: Install LocalXpose
+      run: |
+        curl -s https://api.localxpose.io/api/v2/downloads/linux/amd64 -o lx
         chmod +x lx
         ./lx authtoken DgN6KiykIQ1cb7XvcoaYz2AXX68yIwvUndjYfchQ
 
-    - name: 🐳 Start XFCE VNC Docker Container
+    - name: Start LocalXpose Tunnel (Port 6080)
       run: |
-        docker pull accetto/ubuntu-vnc-xfce-g3
-        docker run -d \
-          --name vnc-desktop \
-          -p 6901:6901 \
-          -e VNC_PW="vir@at123" \
-          accetto/ubuntu-vnc-xfce-g3
+        nohup ./lx http 6080 > tunnel.log 2>&1 &
+        sleep 5
+        cat tunnel.log | grep -i "url"
 
-    - name: 🌐 Start LocalXpose Tunnel for noVNC (Port 6901)
+    - name: Show Access URL
       run: |
-        nohup ./lx tunnel http --port 6901 --region ap > lxlog.txt 2>&1 &
-
-    - name: 💤 Wait for Tunnel Initialization
-      run: sleep 10
-
-    - name: 🔗 Show noVNC Public URL
-      run: |
-        echo "Your public noVNC link:"
-        grep -o 'https://[a-zA-Z0-9.-]*\.loca\.lt' lxlog.txt || echo "Tunnel not found."
+        echo "🔗 Visit your XFCE desktop in browser:"
+        cat tunnel.log | grep -oE "https://[a-zA-Z0-9.-]+\.loca\.lt"
