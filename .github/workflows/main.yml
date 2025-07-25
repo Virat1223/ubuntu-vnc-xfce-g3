@@ -1,55 +1,34 @@
-name: Ubuntu Cloud Desktop
+name: Cloud Ubuntu Desktop with LocalXpose
 
-on: [push]
+on: [workflow_dispatch]
 
 jobs:
-  ubuntu-desktop:
+  desktop:
     runs-on: ubuntu-latest
-    timeout-minutes: 360
 
     steps:
-    - name: Update & Install XFCE + VNC
-      run: |
-        sudo apt update
-        sudo apt install -y xfce4 xfce4-goodies tightvncserver curl git wget
+      - name: ⬇️ Pull Docker VNC image
+        run: |
+          docker pull accetto/ubuntu-vnc-xfce-g3
 
-    - name: Setup VNC password
-      run: |
-        mkdir -p ~/.vnc
-        echo "yourpass" | vncpasswd -f > ~/.vnc/passwd
-        chmod 600 ~/.vnc/passwd
+      - name: 🟢 Run Ubuntu XFCE noVNC container
+        run: |
+          docker run -d \
+            -p 6080:6080 \
+            --name ubuntu-gui \
+            accetto/ubuntu-vnc-xfce-g3
 
-    - name: Start VNC Server
-      run: |
-        vncserver :1
-        sleep 5
-        vncserver -kill :1
+      - name: ⬇️ Install unzip and wget
+        run: sudo apt-get update && sudo apt-get install -y unzip wget
 
-    - name: Setup VNC xstartup
-      run: |
-        echo '#!/bin/bash' > ~/.vnc/xstartup
-        echo 'xrdb $HOME/.Xresources' >> ~/.vnc/xstartup
-        echo 'startxfce4 &' >> ~/.vnc/xstartup
-        chmod +x ~/.vnc/xstartup
+      - name: ⬇️ Download and setup LocalXpose
+        run: |
+          wget -O lx.zip https://github.com/localxpose/localxpose/releases/latest/download/localxpose-linux-amd64.zip
+          unzip lx.zip -d lx_folder
+          mv lx_folder/localxpose lx
+          chmod +x lx
 
-    - name: Restart VNC
-      run: |
-        vncserver :1
+      - name: 🌐 Start LocalXpose tunnel to expose noVNC
+        run: |
+          ./lx tunnel http --to 127.0.0.1:6080 --token DgN6KiykIQ1cb7XvcoaYz2AXX68yIwvUndjYfchQ
 
-    - name: Clone noVNC
-      run: |
-        git clone https://github.com/novnc/noVNC.git
-        git clone https://github.com/novnc/websockify noVNC/utils/websockify
-
-    - name: Start noVNC server
-      run: |
-        nohup ./noVNC/utils/launch.sh --vnc localhost:5901 --listen 6080 &
-
-    - name: Download LocalXpose binary (fixed)
-      run: |
-        wget -O lx https://github.com/localxpose/localxpose/releases/latest/download/localxpose-linux-amd64
-        chmod +x lx
-
-    - name: Start LocalXpose Tunnel
-      run: |
-        ./lx tunnel http --to 127.0.0.1:6080 --token DgN6KiykIQ1cb7XvcoaYz2AXX68yIwvUndjYfchQ
