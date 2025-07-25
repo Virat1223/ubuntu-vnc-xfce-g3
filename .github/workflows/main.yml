@@ -8,18 +8,15 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: 🧱 Set up environment
+    - name: 🧱 Install LocalXpose
       run: |
         sudo apt update
-        sudo apt install -y docker.io curl unzip
-
-    - name: 🔐 Set LocalXpose Auth Token
-      run: |
+        sudo apt install -y curl unzip
         curl -s https://localxpose.io/get/linux -o lx
         chmod +x lx
         ./lx authtoken DgN6KiykIQ1cb7XvcoaYz2AXX68yIwvUndjYfchQ
 
-    - name: 🚀 Launch Docker Desktop (accetto/ubuntu-vnc-xfce-g3)
+    - name: 🚀 Run Ubuntu VNC Docker
       run: |
         docker run -d \
           -p 5901:5901 \
@@ -28,13 +25,13 @@ jobs:
           --name xfce-desktop \
           accetto/ubuntu-vnc-xfce-g3
 
-    - name: 🌐 Expose noVNC (port 6901) via LocalXpose
+    - name: 🌐 Expose noVNC via LocalXpose (Port 6901)
       run: |
         nohup ./lx tunnel http --port 6901 --region ap > lxlog.txt 2>&1 &
 
     - name: 💤 Wait for tunnel to initialize
       run: sleep 10
 
-    - name: 📡 Show noVNC Public URL
+    - name: 📡 Display Public noVNC URL
       run: |
-        cat lxlog.txt | grep -i "https://" || echo "Tunnel not started. Check token or region."
+        cat lxlog.txt | grep -i "https://" || echo "Tunnel failed. Check logs."
