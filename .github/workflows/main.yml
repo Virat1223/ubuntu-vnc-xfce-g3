@@ -1,41 +1,36 @@
-name: Ubuntu GUI in Browser (LocalXpose)
+name: Cloud Ubuntu Desktop with XFCE
 
 on:
   workflow_dispatch:
 
 jobs:
-  ubuntu-gui:
+  run-vnc:
     runs-on: ubuntu-latest
+
     steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
       - name: Set up Docker
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v2
 
-      - name: Run Ubuntu XFCE Desktop (noVNC)
+      - name: Pull XFCE Ubuntu VNC Image
         run: |
-          docker run -d --name ubuntu-desktop \
-            -p 6080:6080 \
-            accetto/ubuntu-vnc-xfce-g3
+          docker pull accetto/ubuntu-vnc-xfce-g3
 
-      - name: Install LocalXpose CLI
+      - name: Run Ubuntu Desktop container
         run: |
-          wget https://localxpose.io/releases/loclx-linux-amd64.deb
-          sudo dpkg -i loclx-linux-amd64.deb || sudo apt --fix-broken install -y
+          docker run -d --name ubuntu-gui -p 6080:6080 accetto/ubuntu-vnc-xfce-g3
 
-      - name: Login to LocalXpose
+      - name: Install LocalXpose
         run: |
+          wget https://api.localxpose.io/api/downloads/loclx-linux-amd64.deb -O loclx.deb
+          sudo dpkg -i loclx.deb
           mkdir -p ~/.config/localxpose
-          echo 'auth_token: DgN6KiykIQ1cb7XvcoaYz2AXX68yIwvUndjYfchQ' > ~/.config/localxpose/config.yml
+          echo '${{ secrets.LOCALXPOSE_TOKEN }}' > ~/.config/localxpose/access.token
 
-      - name: Start tunnel to noVNC
+      - name: Start LocalXpose tunnel to port 6080
         run: |
-          nohup loclx tunnel http --to 127.0.0.1:6080 > tunnel.log 2>&1 &
+          loclx tunnel http --to 127.0.0.1:6080 > tunnel.log 2>&1 &
           sleep 5
-          cat tunnel.log | grep -i "https"
-
-      - name: Show tunnel URL
-        run: |
-          echo "👇👇👇 COPY YOUR LINK 👇👇👇"
-          cat tunnel.log | grep -i "https" || echo "Wait a bit then check again in logs"
-
-      - name: Keep Action Alive
-        run: sleep 3600
+          cat tunnel.log
