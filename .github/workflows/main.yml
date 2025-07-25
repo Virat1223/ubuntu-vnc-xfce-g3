@@ -1,4 +1,4 @@
-name: Ubuntu GUI in Browser with noVNC
+name: Ubuntu GUI in Browser with noVNC + LocalXpose
 
 on:
   workflow_dispatch:
@@ -9,30 +9,37 @@ jobs:
     timeout-minutes: 360
 
     steps:
-      - name: Set up Ubuntu Desktop with XFCE, Kdenlive, noVNC
+      - name: Update & Install GUI, Tools, and noVNC
         run: |
           sudo apt update
-          sudo apt install -y xfce4 xfce4-goodies tightvncserver novnc websockify kdenlive firefox
+          sudo apt install -y xfce4 xfce4-goodies tightvncserver novnc websockify kdenlive firefox curl expect
 
+      - name: Set VNC Password (non-interactive)
+        run: |
           mkdir -p ~/.vnc
-          # Set password for VNC (needs expect to automate)
-          sudo apt install -y expect
+
           expect <<EOF
           spawn vncpasswd
           expect "Password:"
-          send "kali123\r"
+          send "kali1234\r"
           expect "Verify:"
-          send "kali123\r"
+          send "kali1234\r"
           expect eof
           EOF
 
-          export DISPLAY=:1
-          vncserver $DISPLAY -geometry 1280x720 -depth 24
+          chmod 600 ~/.vnc/passwd
 
-          # Start noVNC server
-          nohup websockify --web=/usr/share/novnc/ 6080 localhost:5901 &
+      - name: Start VNC Server
+        run: |
+          vncserver :1 -geometry 1280x720 -depth 24
 
-      - name: Serve noVNC via LocalXpose
+      - name: Start noVNC Server
+        run: |
+          websockify --web=/usr/share/novnc/ 6080 localhost:5901 &
+          sleep 3
+          echo "✅ noVNC running on port 6080"
+
+      - name: Expose GUI with LocalXpose
         run: |
           curl -s https://raw.githubusercontent.com/localxpose/cli/main/install.sh | bash
-          ./lx tunnel http --port 6080 --subdomain ubuntu-gui
+          ./lx tunnel http --port 6080 --to 80 --subdomain ubuntu-gui
