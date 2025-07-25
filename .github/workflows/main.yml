@@ -1,49 +1,28 @@
-name: Ubuntu VNC with LocalXpose
+name: Ubuntu GUI with Browser Access
+
 on: [workflow_dispatch]
 
 jobs:
-  ubuntu-vnc:
+  ubuntu-desktop:
     runs-on: ubuntu-latest
     steps:
 
-    - name: Set up environment
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y wget curl gnupg2 software-properties-common lsb-release
+      - name: Launch Ubuntu GUI via Docker (noVNC on :6080)
+        run: |
+          docker run -d \
+            -p 6080:80 \
+            -e VNC_PW='longsecurepass' \
+            --name ubuntu-desktop \
+            accetto/ubuntu-vnc-xfce-g3
 
-    - name: Install XFCE, VNC, and websockify
-      run: |
-        sudo apt-get install -y xfce4 xfce4-goodies tightvncserver git python3-pip
-        pip install websockify
-        vncserver :1
-        vncserver -kill :1
+      - name: Install dependencies
+        run: sudo apt update && sudo apt install -y wget curl gdebi-core
 
-    - name: Configure VNC
-      run: |
-        mkdir -p ~/.vnc
-        echo "#!/bin/bash\nxrdb $HOME/.Xresources\nstartxfce4 &" > ~/.vnc/xstartup
-        chmod +x ~/.vnc/xstartup
-        vncserver :1
+      - name: Download and install LocalXpose (DEB)
+        run: |
+          wget -O loclx.deb https://api.localxpose.io/api/downloads/loclx-linux-amd64.deb
+          sudo gdebi -n loclx.deb
 
-    - name: Clone noVNC
-      run: |
-        git clone https://github.com/novnc/noVNC.git ~/noVNC
-        git clone https://github.com/novnc/websockify.git ~/noVNC/utils/websockify
-
-    - name: Start noVNC
-      run: |
-        nohup ~/noVNC/utils/novnc_proxy --vnc localhost:5901 --listen 6080 &
-
-    - name: Download and install LocalXpose
-      run: |
-        wget -O loclx.deb https://api.localxpose.io/api/downloads/loclx-linux-amd64.deb
-        sudo dpkg -i loclx.deb || sudo apt-get install -f -y
-
-    - name: Expose VNC noVNC web via LocalXpose
-      env:
-        LOCX_TOKEN: DgN6KiykIQ1cb7XvcoaYz2AXX68yIwvUndjYfchQ
-      run: |
-        nohup loclx tunnel http --to 127.0.0.1:6080 --token $LOCX_TOKEN > lx.log 2>&1 &
-
-    - name: Keep alive
-      run: sleep 3000
+      - name: Start LocalXpose tunnel (replace with your token)
+        run: |
+          loclx tunnel http --to 127.0.0.1:6080 --token DgN6KiykIQ1cb7XvcoaYz2AXX68yIwvUndjYfchQ
