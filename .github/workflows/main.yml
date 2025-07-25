@@ -1,49 +1,36 @@
-name: Ubuntu XFCE Cloud Desktop
+name: Ubuntu GUI with LocalXpose Tunnel
 
-on: [workflow_dispatch]
+on: workflow_dispatch
 
 jobs:
-  run-desktop:
+  ubuntu-desktop:
     runs-on: ubuntu-latest
-    timeout-minutes: 360
 
     steps:
-    - name: ⬇️ Update & Install Packages
+    - name: Set up LocalXpose
       run: |
-        sudo apt-get update
-        sudo apt-get install -y xfce4 xfce4-goodies tightvncserver wget unzip x11vnc xvfb firefox novnc websockify curl
+        sudo apt update
+        sudo apt install -y unzip curl wget xfce4 xfce4-goodies tightvncserver x11vnc dbus-x11
 
-    - name: 🖥️ Setup VNC Password
-      run: |
-        mkdir -p ~/.vnc
-        echo "123456" | vncpasswd -f > ~/.vnc/passwd
-        chmod 600 ~/.vnc/passwd
+        # Start dbus
+        sudo service dbus start
 
-    - name: 🚀 Start VNC Server (Headless)
-      run: |
-        export DISPLAY=:1
-        vncserver :1 -geometry 1280x720 -depth 24
+        # Start VNC server (port 5900)
+        vncserver :0
+        export DISPLAY=:0
 
-    - name: 🌐 Start noVNC
-      run: |
-        mkdir -p ~/novnc
-        git clone https://github.com/novnc/noVNC.git ~/novnc
-        git clone https://github.com/novnc/websockify ~/novnc/utils/websockify
-        ~/novnc/utils/novnc_proxy --vnc localhost:5901 --listen 6080 &
-
-    - name: 🧠 Download LocalXpose Client (Fixed 403)
-      run: |
-        curl -L -o lx.zip https://api.localxpose.io/api/v2/downloads/lx-linux-amd64.zip
+        # Download LocalXpose binary dynamically
+        url=$(curl -sI https://api.localxpose.io/api/v2/downloads/lx-linux-amd64.zip | grep -i Location | awk '{print $2}' | tr -d '\r')
+        wget "$url" -O lx.zip
         unzip lx.zip
         chmod +x lx
+        ./lx auth DgN6KiykIQ1cb7XvcoaYz2AXX68yIwvUndjYfchQ
+        ./lx tunnel tcp --port 5900 &
 
-    - name: 🌍 Start LocalXpose Tunnel (Port 6080)
-      run: |
-        ./lx authtoken DgN6KiykIQ1cb7XvcoaYz2AXX68yIwvUndjYfchQ
-        ./lx tunnel http --port 6080 > tunnel.log &
-        sleep 5
-        cat tunnel.log | grep -i "url"
-
-    - name: 💤 Keep Alive
-      run: |
-        while true; do sleep 300; done
+        # Install noVNC
+        git clone https://github.com/novnc/noVNC.git
+        cd noVNC
+        git clone https://github.com/novnc/websockify
+        ./utils/novnc_proxy --vnc localhost:5900 &
+        
+        echo "Everything is up! You can now access your desktop via LocalXpose TCP tunnel and noVNC."
