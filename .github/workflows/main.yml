@@ -1,30 +1,28 @@
-name: Ubuntu XFCE Desktop via noVNC + LocalXpose
+name: Simple Ubuntu XFCE GUI via noVNC + LocalXpose
 
 on:
   workflow_dispatch:
 
 jobs:
-  desktop:
+  ubuntu-desktop:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Install Required Tools
+    - name: Install XFCE and VNC
       run: |
         sudo apt update
-        sudo apt install -y xfce4 xfce4-goodies tightvncserver wget unzip curl
+        sudo apt install -y xfce4 xfce4-goodies tightvncserver wget curl git
 
-    - name: Setup VNC Password
+    - name: Set up VNC Password
       run: |
         mkdir -p ~/.vnc
-        echo "vncpassword" | vncpasswd -f > ~/.vnc/passwd
+        echo "pass1234" | vncpasswd -f > ~/.vnc/passwd
         chmod 600 ~/.vnc/passwd
 
     - name: Start VNC Server
-      run: |
-        vncserver :1 -geometry 1280x800 -depth 24
-        echo "Started VNC server on :1"
+      run: vncserver :1 -geometry 1280x720 -depth 24
 
-    - name: Download and Run noVNC
+    - name: Set up noVNC
       run: |
         git clone https://github.com/novnc/noVNC.git
         cd noVNC
@@ -37,8 +35,9 @@ jobs:
         chmod +x lx
         ./lx authtoken DgN6KiykIQ1cb7XvcoaYz2AXX68yIwvUndjYfchQ
 
-    - name: Start LocalXpose Tunnel
+    - name: Start LocalXpose Tunnel (Port 6080 for noVNC)
       run: |
         nohup ./lx http 6080 > lx.log 2>&1 &
-        sleep 6
+        sleep 8
+        echo "Your public URL (copy this):"
         grep -o 'https://[a-zA-Z0-9.-]*\.loca\.lt' lx.log || cat lx.log
