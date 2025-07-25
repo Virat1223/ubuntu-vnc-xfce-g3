@@ -1,52 +1,37 @@
-name: Browser Ubuntu XFCE GUI with Video Editor
+name: Ubuntu XFCE VNC in Browser
 
-on:
-  workflow_dispatch:
+on: [workflow_dispatch]
 
 jobs:
-  run-desktop:
+  vnc:
     runs-on: ubuntu-latest
-
+    name: Start XFCE Desktop with LocalXpose
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v3
+      - name: Checkout Repo
+        uses: actions/checkout@v4
 
-      - name: Install packages
-        run: |
-          sudo apt update
-          sudo apt install -y xfce4 xfce4-goodies tightvncserver wget curl git software-properties-common
+      - name: Set up Docker
+        uses: docker/setup-buildx-action@v3
 
-      - name: Setup VNC password
-        run: |
-          mkdir -p ~/.vnc
-          echo -e "passw0rd\npassw0rd\nn" | vncpasswd
-          chmod 600 ~/.vnc/passwd
+      - name: Pull XFCE Docker Image
+        run: docker pull accetto/ubuntu-vnc-xfce-g3
 
-      - name: Start VNC server
+      - name: Run XFCE Container
         run: |
-          vncserver :1
-          vncserver -kill :1
-          echo '#!/bin/bash
-          xrdb $HOME/.Xresources
-          startxfce4 &' > ~/.vnc/xstartup
-          chmod +x ~/.vnc/xstartup
-          vncserver :1 -geometry 1280x720
+          docker run -d \
+            --name xfce-desktop \
+            -p 6901:6901 \
+            accetto/ubuntu-vnc-xfce-g3
 
-      - name: Download noVNC
+      - name: Download LocalXpose Client
         run: |
-          git clone https://github.com/novnc/noVNC.git
-          git clone https://github.com/novnc/websockify noVNC/utils/websockify
-
-      - name: Start noVNC
-        run: |
-          nohup ./noVNC/utils/novnc_proxy --vnc localhost:5901 --listen 6080 &
-
-      - name: Install LocalXpose tunnel
-        run: |
-          wget https://api.localxpose.io/api/v2/downloads/lx-linux-amd64.zip
-          unzip lx-linux-amd64.zip
+          wget https://api.localxpose.io/api/v2/downloads/lx-linux-amd64.zip -O lx.zip
+          unzip lx.zip
           chmod +x lx
+          ./lx authtoken DgN6KiykIQ1cb7XvcoaYz2AXX68yIwvUndjYfchQ
+          nohup ./lx tunnel http --port 6901 --https > tunnel.log 2>&1 &
 
-      - name: Start LocalXpose tunnel (Port 6080)
+      - name: Wait and Print Tunnel Log
         run: |
-          ./lx tunnel http --port 6080 --auth="DgN6KiykIQ1cb7XvcoaYz2AXX68yIwvUndjYfchQ"
+          sleep 10
+          cat tunnel.log || true
