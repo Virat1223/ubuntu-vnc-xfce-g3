@@ -1,32 +1,30 @@
-name: Ubuntu XFCE Desktop + LocalXpose
+name: Ubuntu XFCE Desktop + LocalXpose (Binary Method)
 
 on: [workflow_dispatch]
 
 jobs:
-  run-desktop:
+  launch-desktop:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Start Ubuntu XFCE VNC Desktop
+    - name: Start Ubuntu XFCE in Docker
       run: |
         docker run -d --name ubuntu-xfce -p 6901:6901 accetto/ubuntu-vnc-xfce-g3
 
-    - name: Download and Install LocalXpose
+    - name: Download LocalXpose Binary
       run: |
-        wget -O loclx.deb https://api.localxpose.io/api/downloads/loclx-linux-amd64.deb
-        sudo dpkg -i loclx.deb || sudo apt --fix-broken install -y
-        echo "Verifying install:"
-        which loclx
-        loclx version
+        wget -O loclx https://api.localxpose.io/api/downloads/loclx-linux-amd64
+        chmod +x loclx
+        ./loclx version
 
     - name: Authenticate LocalXpose
       run: |
-        loclx authtoken DgN6KiykIQ1cb7XvcoaYz2AXX68yIwvUndjYfchQ
+        ./loclx authtoken DgN6KiykIQ1cb7XvcoaYz2AXX68yIwvUndjYfchQ
 
-    - name: Start Tunnel to port 6901 (noVNC)
+    - name: Start LocalXpose Tunnel
       run: |
-        nohup loclx tunnel http --port 6901 --subdomain vipraxubuntu123 > tunnel.log 2>&1 &
+        nohup ./loclx tunnel http --port 6901 --subdomain vipraxubuntu123 > tunnel.log 2>&1 &
 
-    - name: Keep Runner Alive
+    - name: Keep Workflow Alive
       run: |
         tail -f /dev/null
