@@ -4,38 +4,46 @@ on:
   workflow_dispatch:
 
 jobs:
-  ubuntu-desktop:
+  run-ubuntu:
     runs-on: ubuntu-latest
 
     steps:
-    - name: 🧱 Set up Docker
+    - name: Setup dependencies
       run: |
-        sudo apt-get update
-        sudo apt-get install -y docker.io
+        sudo apt update
+        sudo apt remove -y containerd runc
+        sudo apt install -y curl wget gnupg2 software-properties-common lsb-release
 
-    - name: 🐧 Pull XFCE GUI Docker image
+    - name: Install Docker (optional but cleaned)
       run: |
-        docker pull accetto/ubuntu-vnc-xfce-g3
+        curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+        echo \
+        "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] \
+        https://download.docker.com/linux/ubuntu \
+        $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+        sudo apt update
+        sudo apt install -y docker-ce docker-ce-cli containerd.io
 
-    - name: 🚀 Run XFCE container with exposed VNC (port 6080)
+    - name: Install XFCE and noVNC
       run: |
-        docker run -d -p 6080:6080 --name xfce-gui accetto/ubuntu-vnc-xfce-g3
+        sudo apt update
+        sudo apt install -y xfce4 xfce4-goodies tightvncserver git
+        git clone https://github.com/accetto/ubuntu-vnc-xfce-g3
+        cd ubuntu-vnc-xfce-g3
+        ./build.sh
 
-    - name: 🌐 Install LocalXpose
+    - name: Install LocalXpose
       run: |
-        curl -s https://api.localxpose.io/api/v2/downloads/localxpose_24.9.2_linux_amd64.deb --output loclx.deb
-        sudo dpkg -i loclx.deb
+        wget https://localxpose.io/releases/localxpose_24.9.2_Linux_x86_64.deb -O loclx.deb
+        sudo apt install -y ./loclx.deb
         mkdir -p ~/.config/localxpose
 
-    - name: 🔐 Authenticate LocalXpose
+    - name: Run Ubuntu XFCE Desktop
       run: |
-        echo "${{ secrets.LOCALXPOSE_TOKEN }}" > ~/.config/localxpose/access.token
+        docker run -d -p 6080:6080 accetto/ubuntu-vnc-xfce-g3
 
-    - name: 🛜 Start tunnel to expose port 6080
+    - name: Start tunnel with LocalXpose
       run: |
         nohup loclx tunnel http --to 127.0.0.1:6080 > tunnel.log 2>&1 &
-        sleep 5
+        sleep 10
         cat tunnel.log
-
-    - name: 🧾 Show tunnel logs with access link
-      run: cat tunnel.log
