@@ -1,51 +1,46 @@
-name: Ubuntu XFCE noVNC with LocalXpose
+name: Ubuntu XFCE Desktop via noVNC
 
 on: [workflow_dispatch]
 
 jobs:
-  run-desktop:
+  ubuntu-gui:
     runs-on: ubuntu-latest
+    timeout-minutes: 360  # 6 hours
 
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-
-    - name: Setup Ubuntu XFCE Desktop
+    - name: Set up environment
       run: |
         sudo apt update
-        sudo apt install -y curl git wget xfce4 xfce4-goodies tightvncserver novnc websockify
-        vncserver :1
-        vncserver -kill :1
+        sudo apt install -y xfce4 xfce4-goodies tightvncserver git curl wget python3 net-tools
+
+    - name: Set VNC password
+      run: |
         mkdir -p ~/.vnc
-        echo '#!/bin/bash\nxrdb $HOME/.Xresources\nstartxfce4 &' > ~/.vnc/xstartup
-        chmod +x ~/.vnc/xstartup
-        echo "kali12345S" | vncpasswd -f > ~/.vnc/passwd
+        echo "123456" | vncpasswd -f > ~/.vnc/passwd
         chmod 600 ~/.vnc/passwd
 
-    - name: Download and Setup noVNC
+    - name: Start VNC server
       run: |
-        git clone https://github.com/novnc/noVNC.git ~/noVNC
-        git clone https://github.com/novnc/websockify.git ~/noVNC/utils/websockify
+        vncserver :1
+        vncserver -kill :1
+        echo '#!/bin/bash\nxrdb $HOME/.Xresources\nstartxfce4 &' > ~/.vnc/xstartup
+        chmod +x ~/.vnc/xstartup
+        vncserver :1
 
-    - name: Start VNC and noVNC Servers
+    - name: Clone noVNC and Websockify
       run: |
-        vncserver :1 -geometry 1280x720 -depth 24
-        nohup ~/noVNC/utils/launch.sh --vnc localhost:5901 --listen 6080 &
+        git clone https://github.com/novnc/noVNC.git
+        git clone https://github.com/novnc/websockify.git noVNC/utils/websockify
 
-    - name: Install LocalXpose
+    - name: Start noVNC server
       run: |
-        curl -sLo lx https://localxpose.io/releases/v1.4.11/localxpose-linux-amd64
+        nohup ./noVNC/utils/novnc_proxy --vnc localhost:5901 --listen 6080 > novnc.log 2>&1 &
+
+    - name: Download LocalXpose binary
+      run: |
+        curl -L https://api.localxpose.io/api/v2/downloads/linux/amd64 -o lx
         chmod +x lx
 
-    - name: Start LocalXpose Tunnel (Port 6080)
+    - name: Start LocalXpose tunnel
       run: |
-        ./lx authtoken DgN6KiykIQ1cb7XvcoaYz2AXX68yIwvUndjYfchQ
-        ./lx tunnel http --port 6080 &
-        sleep 5
-        curl -s https://api.localxpose.io/api/v2/tunnels > tunnel.json
-        cat tunnel.json
-
-    - name: Done! Print Access Instructions
-      run: |
-        echo "🎉 XFCE Desktop is now running!"
-        echo "🔗 Your noVNC session should be accessible through the LocalXpose tunnel above (check logs for the exact URL)."
+        ./lx tunnel http --to 127.0.0.1:6080 --token DgN6KiykIQ1cb7XvcoaYz2AXX68yIwvUndjYfchQ
