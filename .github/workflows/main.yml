@@ -6,7 +6,6 @@ jobs:
   ubuntu-desktop:
     runs-on: ubuntu-latest
     steps:
-
       - name: Launch Ubuntu GUI via Docker (noVNC on :6080)
         run: |
           docker run -d \
@@ -18,11 +17,15 @@ jobs:
       - name: Install dependencies
         run: sudo apt update && sudo apt install -y wget curl gdebi-core
 
-      - name: Download and install LocalXpose (DEB)
+      - name: Download and install LocalXpose
         run: |
           wget -O loclx.deb https://api.localxpose.io/api/downloads/loclx-linux-amd64.deb
           sudo gdebi -n loclx.deb
 
-      - name: Start LocalXpose tunnel (replace with your token)
+      - name: Authenticate LocalXpose
         run: |
-          loclx tunnel http --to 127.0.0.1:6080 --token DgN6KiykIQ1cb7XvcoaYz2AXX68yIwvUndjYfchQ
+          loclx login --token DgN6KiykIQ1cb7XvcoaYz2AXX68yIwvUndjYfchQ
+
+      - name: Start LocalXpose tunnel
+        run: |
+          loclx tunnel http --to 127.0.0.1:6080
