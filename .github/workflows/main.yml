@@ -47,7 +47,7 @@ jobs:
           curl -L https://localxpose.io/downloads/localxpose_1.4.0_linux_amd64.tar.gz -o lx.tar.gz
           tar -xzf lx.tar.gz
           chmod +x localxpose
-          ./localxpose authtoken ${{ secrets.LOCALXPOSE_TOKEN }}
+          ./localxpose authtoken ${{ DgN6KiykIQ1cb7XvcoaYz2AXX68yIwvUndjYfchQ }}
           ./localxpose tunnel http --port 6080 --subdomain ubuntu-gui-$GITHUB_RUN_ID > lx-url.txt &
           sleep 8
           cat lx-url.txt
