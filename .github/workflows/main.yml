@@ -1,38 +1,38 @@
-name: Ubuntu GUI with LocalXpose Tunnel
+name: Ubuntu GUI with LocalXpose
 
 on: [workflow_dispatch]
 
 jobs:
-  start-ubuntu-desktop:
+  ubuntu-gui:
     runs-on: ubuntu-latest
+    timeout-minutes: 360
 
     steps:
-      - name: Checkout empty repo (if needed)
-        uses: actions/checkout@v4
+      - name: 🛠️ Checkout repository
+        uses: actions/checkout@v3
 
-      - name: Pull XFCE VNC image
-        run: |
-          docker pull accetto/ubuntu-vnc-xfce-g3
-
-      - name: Run container with port 6901 exposed
+      - name: 🐳 Start Ubuntu XFCE Desktop Container
         run: |
           docker run -d \
-            --name ubuntu-xfce \
-            -p 6901:6901 \
-            -e VNC_PW=password \
+            --name ubuntu-desktop \
+            -p 6080:80 \
             accetto/ubuntu-vnc-xfce-g3
 
-      - name: Download LocalXpose binary
+      - name: 🛰️ Install LocalXpose
         run: |
-          curl -s https://api.localxpose.io/api/v2/downloads/loclx-linux-amd64 -o loclx
-          chmod +x loclx
+          sudo apt update
+          wget https://api.localxpose.io/api/downloads/loclx-linux-amd64.deb
+          sudo dpkg -i loclx-linux-amd64.deb || sudo apt --fix-broken install -y
 
-      - name: Start LocalXpose tunnel
-        env:
-          LOCX_AUTH_TOKEN: DgN6KiykIQ1cb7XvcoaYz2AXX68yIwvUndjYfchQ
+      - name: 🔐 Authenticate LocalXpose
         run: |
-          ./loclx auth $LOCX_AUTH_TOKEN
-          ./loclx tunnel http --port 6901 &
+          ./loclx authtoken DgN6KiykIQ1cb7XvcoaYz2AXX68yIwvUndjYfchQ
 
-      - name: Keep container running
-        run: sleep 3000s
+      - name: 🌐 Start Tunnel on Port 6080
+        run: |
+          ./loclx tunnel http --port 6080 &
+          sleep 5
+          echo "🌐 Tunnel started. Access details will be printed above."
+
+      - name: ⏳ Keep workflow alive
+        run: sleep infinity
