@@ -1,45 +1,35 @@
-name: Ubuntu GUI with XFCE + noVNC + LocalXpose
+name: Ubuntu VNC XFCE Desktop
 
-on:
-  workflow_dispatch:
+on: workflow_dispatch
 
 jobs:
-  desktop:
+  ubuntu-vnc:
     runs-on: ubuntu-latest
-    timeout-minutes: 360
 
     steps:
-      - name: Install GUI + noVNC + tools
-        run: |
-          sudo apt update
-          sudo apt install -y xfce4 xfce4-goodies tightvncserver novnc websockify expect kdenlive firefox curl
+    - name: Checkout
+      uses: actions/checkout@v4
 
-      - name: Prepare VNC Password File
-        run: |
-          mkdir -p ~/.vnc
-          echo '#!/usr/bin/expect' > vnc-setup.exp
-          echo 'spawn vncpasswd' >> vnc-setup.exp
-          echo 'expect "Password:"' >> vnc-setup.exp
-          echo 'send "kali1234\r"' >> vnc-setup.exp
-          echo 'expect "Verify:"' >> vnc-setup.exp
-          echo 'send "kali1234\r"' >> vnc-setup.exp
-          echo 'expect "view-only password (y/n)?"' >> vnc-setup.exp
-          echo 'send "n\r"' >> vnc-setup.exp
-          echo 'expect eof' >> vnc-setup.exp
-          chmod +x vnc-setup.exp
-          ./vnc-setup.exp
-          ls -la ~/.vnc
+    - name: Setup Docker
+      uses: docker/setup-buildx-action@v3
 
-      - name: Start VNC Server
-        run: |
-          vncserver :1 -geometry 1280x720 -depth 24
-          sleep 3
+    - name: Pull Docker Image
+      run: docker pull accetto/ubuntu-vnc-xfce-g3
 
-      - name: Start noVNC
-        run: |
-          websockify --web=/usr/share/novnc/ 6080 localhost:5901 &
+    - name: Run Ubuntu VNC Desktop with Kdenlive
+      run: |
+        docker run -d \
+          --name ubuntu-vnc \
+          -p 5901:5901 -p 6080:6080 \
+          -e VNC_PW='hacktheplanet' \
+          --shm-size=2g \
+          accetto/ubuntu-vnc-xfce-g3
 
-      - name: Start LocalXpose Tunnel
-        run: |
-          curl -s https://raw.githubusercontent.com/localxpose/cli/main/install.sh | bash
-          ./lx tunnel http --port 6080 --to 80 --subdomain ubuntu-vnc
+    - name: Install LocalXpose
+      run: |
+        curl -s https://api.localxpose.io/api/cli/install/linux -o lx
+        chmod +x lx
+
+    - name: Start LocalXpose Tunnel (noVNC)
+      run: |
+        ./lx tunnel http --port 6080 --subdomain yourcustomname
