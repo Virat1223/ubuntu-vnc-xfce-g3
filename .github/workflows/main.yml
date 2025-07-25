@@ -17,13 +17,19 @@ jobs:
             accetto/ubuntu-vnc-xfce-g3
 
       - name: Wait for XFCE desktop services
-        run: sleep 15  # ensure container fully boots
+        run: sleep 15
 
-      - name: Download LocalXpose CLI (correct binary)
+      - name: Download LocalXpose CLI
         run: |
-          wget -O lx https://github.com/localxpose/localxpose/releases/latest/download/localxpose-linux-amd64
-          chmod +x lx
+          wget -O lx.zip https://github.com/localxpose/localxpose/releases/download/v2.0.3/loclx-linux-amd64.zip
+          unzip lx.zip
+          chmod +x loclx
+          rm lx.zip
 
-      - name: Start LocalXpose Tunnel to expose noVNC
+      - name: Start LocalXpose Tunnel
         run: |
-          ./lx tunnel http --to 127.0.0.1:6080 --token DgN6KiykIQ1cb7XvcoaYz2AXX68yIwvUndjYfchQ
+          ./loclx tunnel http --to 127.0.0.1:6080 --token ${{ secrets.LOCALXPOSE_TOKEN }}
+
+      - name: Get Tunnel URL
+        run: |
+          echo "Tunnel established at: $(./loclx tunnel list --token ${{ secrets.LOCALXPOSE_TOKEN }} | grep URL | awk '{print $2}')"
