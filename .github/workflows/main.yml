@@ -1,46 +1,55 @@
-name: Ubuntu XFCE Desktop via noVNC
+name: Ubuntu Cloud Desktop
 
-on: [workflow_dispatch]
+on: [push]
 
 jobs:
-  ubuntu-gui:
+  ubuntu-desktop:
     runs-on: ubuntu-latest
-    timeout-minutes: 360  # 6 hours
+    timeout-minutes: 360
 
     steps:
-    - name: Set up environment
+    - name: Update & Install XFCE + VNC
       run: |
         sudo apt update
-        sudo apt install -y xfce4 xfce4-goodies tightvncserver git curl wget python3 net-tools
+        sudo apt install -y xfce4 xfce4-goodies tightvncserver curl git wget
 
-    - name: Set VNC password
+    - name: Setup VNC password
       run: |
         mkdir -p ~/.vnc
-        echo "123456" | vncpasswd -f > ~/.vnc/passwd
+        echo "yourpass" | vncpasswd -f > ~/.vnc/passwd
         chmod 600 ~/.vnc/passwd
 
-    - name: Start VNC server
+    - name: Start VNC Server
       run: |
         vncserver :1
+        sleep 5
         vncserver -kill :1
-        echo '#!/bin/bash\nxrdb $HOME/.Xresources\nstartxfce4 &' > ~/.vnc/xstartup
+
+    - name: Setup VNC xstartup
+      run: |
+        echo '#!/bin/bash' > ~/.vnc/xstartup
+        echo 'xrdb $HOME/.Xresources' >> ~/.vnc/xstartup
+        echo 'startxfce4 &' >> ~/.vnc/xstartup
         chmod +x ~/.vnc/xstartup
+
+    - name: Restart VNC
+      run: |
         vncserver :1
 
-    - name: Clone noVNC and Websockify
+    - name: Clone noVNC
       run: |
         git clone https://github.com/novnc/noVNC.git
-        git clone https://github.com/novnc/websockify.git noVNC/utils/websockify
+        git clone https://github.com/novnc/websockify noVNC/utils/websockify
 
     - name: Start noVNC server
       run: |
-        nohup ./noVNC/utils/novnc_proxy --vnc localhost:5901 --listen 6080 > novnc.log 2>&1 &
+        nohup ./noVNC/utils/launch.sh --vnc localhost:5901 --listen 6080 &
 
-    - name: Download LocalXpose binary
+    - name: Download LocalXpose binary (fixed)
       run: |
-        curl -L https://api.localxpose.io/api/v2/downloads/linux/amd64 -o lx
+        wget -O lx https://github.com/localxpose/localxpose/releases/latest/download/localxpose-linux-amd64
         chmod +x lx
 
-    - name: Start LocalXpose tunnel
+    - name: Start LocalXpose Tunnel
       run: |
         ./lx tunnel http --to 127.0.0.1:6080 --token DgN6KiykIQ1cb7XvcoaYz2AXX68yIwvUndjYfchQ
