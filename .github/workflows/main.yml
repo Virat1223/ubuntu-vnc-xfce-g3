@@ -1,38 +1,34 @@
-name: Ubuntu GUI with LocalXpose
+name: Ubuntu XFCE Desktop with LocalXpose
 
 on: [workflow_dispatch]
 
 jobs:
-  ubuntu-gui:
+  desktop:
     runs-on: ubuntu-latest
-    timeout-minutes: 360
 
     steps:
-      - name: 🛠️ Checkout repository
-        uses: actions/checkout@v3
+    - name: Checkout repo
+      uses: actions/checkout@v3
 
-      - name: 🐳 Start Ubuntu XFCE Desktop Container
-        run: |
-          docker run -d \
-            --name ubuntu-desktop \
-            -p 6080:80 \
-            accetto/ubuntu-vnc-xfce-g3
+    - name: Set up Ubuntu VNC Desktop
+      run: |
+        docker run -d \
+          --name ubuntu-desktop \
+          -p 5901:5901 \
+          -p 6901:6901 \
+          accetto/ubuntu-vnc-xfce-g3
 
-      - name: 🛰️ Install LocalXpose
-        run: |
-          sudo apt update
-          wget https://api.localxpose.io/api/downloads/loclx-linux-amd64.deb
-          sudo dpkg -i loclx-linux-amd64.deb || sudo apt --fix-broken install -y
+    - name: Download and install LocalXpose
+      run: |
+        wget -O loclx.deb https://api.localxpose.io/api/downloads/loclx-linux-amd64.deb
+        sudo dpkg -i loclx.deb || sudo apt --fix-broken install -y
+        loclx authtoken DgN6KiykIQ1cb7XvcoaYz2AXX68yIwvUndjYfchQ
 
-      - name: 🔐 Authenticate LocalXpose
-        run: |
-          ./loclx authtoken DgN6KiykIQ1cb7XvcoaYz2AXX68yIwvUndjYfchQ
+    - name: Start LocalXpose tunnel to port 6901 (noVNC)
+      run: |
+        nohup loclx tunnel http --port 6901 --subdomain myxfce123 &
 
-      - name: 🌐 Start Tunnel on Port 6080
-        run: |
-          ./loclx tunnel http --port 6080 &
-          sleep 5
-          echo "🌐 Tunnel started. Access details will be printed above."
-
-      - name: ⏳ Keep workflow alive
-        run: sleep infinity
+    - name: Keep GitHub Actions runner alive
+      run: |
+        echo "Runner active. Press Ctrl+C to stop." 
+        tail -f /dev/null
