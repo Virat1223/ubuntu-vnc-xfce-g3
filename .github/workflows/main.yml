@@ -1,29 +1,35 @@
-name: Ubuntu XFCE Desktop with noVNC + Kdenlive + LocalXpose
+name: Ubuntu XFCE Desktop via noVNC + LocalXpose
 
 on:
   workflow_dispatch:
 
 jobs:
-  run-desktop:
+  desktop:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Setup Docker
+    - name: Install Required Tools
       run: |
         sudo apt update
-        sudo apt install docker.io -y
+        sudo apt install -y xfce4 xfce4-goodies tightvncserver wget unzip curl
 
-    - name: Pull Desktop Image
+    - name: Setup VNC Password
       run: |
-        docker pull accetto/ubuntu-vnc-xfce-g3
+        mkdir -p ~/.vnc
+        echo "vncpassword" | vncpasswd -f > ~/.vnc/passwd
+        chmod 600 ~/.vnc/passwd
 
-    - name: Run Desktop with Tools
+    - name: Start VNC Server
       run: |
-        docker run -d \
-          --name vnc-desktop \
-          -p 6080:6080 \
-          accetto/ubuntu-vnc-xfce-g3 \
-          /bin/bash -c "apt update && apt install -y kdenlive gimp && startvnc"
+        vncserver :1 -geometry 1280x800 -depth 24
+        echo "Started VNC server on :1"
+
+    - name: Download and Run noVNC
+      run: |
+        git clone https://github.com/novnc/noVNC.git
+        cd noVNC
+        git clone https://github.com/novnc/websockify
+        nohup ./utils/launch.sh --vnc localhost:5901 > ../novnc.log 2>&1 &
 
     - name: Install LocalXpose
       run: |
@@ -31,13 +37,8 @@ jobs:
         chmod +x lx
         ./lx authtoken DgN6KiykIQ1cb7XvcoaYz2AXX68yIwvUndjYfchQ
 
-    - name: Start LocalXpose Tunnel (Port 6080)
+    - name: Start LocalXpose Tunnel
       run: |
-        nohup ./lx http 6080 > tunnel.log 2>&1 &
-        sleep 5
-        cat tunnel.log | grep -i "url"
-
-    - name: Show Access URL
-      run: |
-        echo "🔗 Visit your XFCE desktop in browser:"
-        cat tunnel.log | grep -oE "https://[a-zA-Z0-9.-]+\.loca\.lt"
+        nohup ./lx http 6080 > lx.log 2>&1 &
+        sleep 6
+        grep -o 'https://[a-zA-Z0-9.-]*\.loca\.lt' lx.log || cat lx.log
