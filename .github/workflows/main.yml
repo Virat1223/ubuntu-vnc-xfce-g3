@@ -1,45 +1,45 @@
-name: Ubuntu GUI in Browser with noVNC + LocalXpose
+name: Ubuntu GUI with XFCE + noVNC + LocalXpose
 
 on:
   workflow_dispatch:
 
 jobs:
-  ubuntu-desktop:
+  desktop:
     runs-on: ubuntu-latest
     timeout-minutes: 360
 
     steps:
-      - name: Update & Install GUI, Tools, and noVNC
+      - name: Install GUI + noVNC + tools
         run: |
           sudo apt update
-          sudo apt install -y xfce4 xfce4-goodies tightvncserver novnc websockify kdenlive firefox curl expect
+          sudo apt install -y xfce4 xfce4-goodies tightvncserver novnc websockify expect kdenlive firefox curl
 
-      - name: Set VNC Password (non-interactive)
+      - name: Prepare VNC Password File
         run: |
           mkdir -p ~/.vnc
-
-          expect <<EOF
-          spawn vncpasswd
-          expect "Password:"
-          send "kali1234\r"
-          expect "Verify:"
-          send "kali1234\r"
-          expect eof
-          EOF
-
-          chmod 600 ~/.vnc/passwd
+          echo '#!/usr/bin/expect' > vnc-setup.exp
+          echo 'spawn vncpasswd' >> vnc-setup.exp
+          echo 'expect "Password:"' >> vnc-setup.exp
+          echo 'send "kali1234\r"' >> vnc-setup.exp
+          echo 'expect "Verify:"' >> vnc-setup.exp
+          echo 'send "kali1234\r"' >> vnc-setup.exp
+          echo 'expect "view-only password (y/n)?"' >> vnc-setup.exp
+          echo 'send "n\r"' >> vnc-setup.exp
+          echo 'expect eof' >> vnc-setup.exp
+          chmod +x vnc-setup.exp
+          ./vnc-setup.exp
+          ls -la ~/.vnc
 
       - name: Start VNC Server
         run: |
           vncserver :1 -geometry 1280x720 -depth 24
+          sleep 3
 
-      - name: Start noVNC Server
+      - name: Start noVNC
         run: |
           websockify --web=/usr/share/novnc/ 6080 localhost:5901 &
-          sleep 3
-          echo "✅ noVNC running on port 6080"
 
-      - name: Expose GUI with LocalXpose
+      - name: Start LocalXpose Tunnel
         run: |
           curl -s https://raw.githubusercontent.com/localxpose/cli/main/install.sh | bash
-          ./lx tunnel http --port 6080 --to 80 --subdomain ubuntu-gui
+          ./lx tunnel http --port 6080 --to 80 --subdomain ubuntu-vnc
