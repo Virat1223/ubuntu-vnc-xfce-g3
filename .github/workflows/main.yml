@@ -9,22 +9,30 @@ jobs:
     timeout-minutes: 360
 
     steps:
-      - name: Install Desktop + noVNC
+      - name: Set up Ubuntu Desktop with XFCE, Kdenlive, noVNC
         run: |
           sudo apt update
           sudo apt install -y xfce4 xfce4-goodies tightvncserver novnc websockify kdenlive firefox
 
           mkdir -p ~/.vnc
-          echo "password" | vncpasswd -f > ~/.vnc/passwd
-          chmod 600 ~/.vnc/passwd
+          # Set password for VNC (needs expect to automate)
+          sudo apt install -y expect
+          expect <<EOF
+          spawn vncpasswd
+          expect "Password:"
+          send "kali123\r"
+          expect "Verify:"
+          send "kali123\r"
+          expect eof
+          EOF
 
-          vncserver :1 -geometry 1280x720 -depth 24
+          export DISPLAY=:1
+          vncserver $DISPLAY -geometry 1280x720 -depth 24
 
-          websockify --web=/usr/share/novnc/ 6080 localhost:5901 &
-          sleep 3
-          echo "noVNC started on port 6080"
+          # Start noVNC server
+          nohup websockify --web=/usr/share/novnc/ 6080 localhost:5901 &
 
-      - name: Serve with LocalXpose
+      - name: Serve noVNC via LocalXpose
         run: |
           curl -s https://raw.githubusercontent.com/localxpose/cli/main/install.sh | bash
-          ./lx tunnel http --port 6080 --to 80 --subdomain ubuntu-gui
+          ./lx tunnel http --port 6080 --subdomain ubuntu-gui
