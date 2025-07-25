@@ -18,9 +18,10 @@ jobs:
 
     - name: Fix PATH and Check loclx
       run: |
-        export PATH=$PATH:/usr/local/bin:/usr/bin
-        which loclx || echo 'loclx not in PATH'
-        loclx version
+       export PATH=$PATH:/usr/local/bin:/usr/bin && \
+        which loclx || echo 'loclx not in PATH' && \
+          loclx version
+
 
     - name: Authenticate LocalXpose
       run: |
