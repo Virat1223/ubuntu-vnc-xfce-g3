@@ -1,35 +1,38 @@
-name: Ubuntu XFCE Desktop with noVNC
+name: Ubuntu GUI with LocalXpose Tunnel
 
-on: [push]
+on: [workflow_dispatch]
 
 jobs:
-  run-desktop:
+  start-ubuntu-desktop:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Repo
-        uses: actions/checkout@v3
+      - name: Checkout empty repo (if needed)
+        uses: actions/checkout@v4
 
-      - name: Set up Docker
-        uses: docker/setup-buildx-action@v2
+      - name: Pull XFCE VNC image
+        run: |
+          docker pull accetto/ubuntu-vnc-xfce-g3
 
-      - name: Build Desktop Image
+      - name: Run container with port 6901 exposed
         run: |
           docker run -d \
-            -p 6080:80 \
-            --name ubuntu-vnc \
+            --name ubuntu-xfce \
+            -p 6901:6901 \
+            -e VNC_PW=password \
             accetto/ubuntu-vnc-xfce-g3
 
-      - name: Download LocalXpose CLI
+      - name: Download LocalXpose binary
         run: |
           curl -s https://api.localxpose.io/api/v2/downloads/loclx-linux-amd64 -o loclx
           chmod +x loclx
-          mv loclx ~/loclx
 
-      - name: Start LocalXpose Tunnel
+      - name: Start LocalXpose tunnel
+        env:
+          LOCX_AUTH_TOKEN: DgN6KiykIQ1cb7XvcoaYz2AXX68yIwvUndjYfchQ
         run: |
-          cd ~
-          ./loclx authtoken DgN6KiykIQ1cb7XvcoaYz2AXX68yIwvUndjYfchQ
-          ./loclx tunnel http --to 127.0.0.1:6080 > tunnel.log 2>&1 &
-          sleep 5
-          tail tunnel.log
+          ./loclx auth $LOCX_AUTH_TOKEN
+          ./loclx tunnel http --port 6901 &
+
+      - name: Keep container running
+        run: sleep 3000s
