@@ -1,49 +1,41 @@
-name: Ubuntu XFCE GUI with LocalXpose
+name: Ubuntu GUI in Browser (LocalXpose)
 
 on:
   workflow_dispatch:
 
 jobs:
-  run-ubuntu:
+  ubuntu-gui:
     runs-on: ubuntu-latest
-
     steps:
-    - name: Setup dependencies
-      run: |
-        sudo apt update
-        sudo apt remove -y containerd runc
-        sudo apt install -y curl wget gnupg2 software-properties-common lsb-release
+      - name: Set up Docker
+        uses: docker/setup-buildx-action@v3
 
-    - name: Install Docker (optional but cleaned)
-      run: |
-        curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-        echo \
-        "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] \
-        https://download.docker.com/linux/ubuntu \
-        $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-        sudo apt update
-        sudo apt install -y docker-ce docker-ce-cli containerd.io
+      - name: Run Ubuntu XFCE Desktop (noVNC)
+        run: |
+          docker run -d --name ubuntu-desktop \
+            -p 6080:6080 \
+            accetto/ubuntu-vnc-xfce-g3
 
-    - name: Install XFCE and noVNC
-      run: |
-        sudo apt update
-        sudo apt install -y xfce4 xfce4-goodies tightvncserver git
-        git clone https://github.com/accetto/ubuntu-vnc-xfce-g3
-        cd ubuntu-vnc-xfce-g3
-        ./build.sh
+      - name: Install LocalXpose CLI
+        run: |
+          wget https://localxpose.io/releases/loclx-linux-amd64.deb
+          sudo dpkg -i loclx-linux-amd64.deb || sudo apt --fix-broken install -y
 
-    - name: Install LocalXpose
-      run: |
-        wget https://localxpose.io/releases/localxpose_24.9.2_Linux_x86_64.deb -O loclx.deb
-        sudo apt install -y ./loclx.deb
-        mkdir -p ~/.config/localxpose
+      - name: Login to LocalXpose
+        run: |
+          mkdir -p ~/.config/localxpose
+          echo 'auth_token: DgN6KiykIQ1cb7XvcoaYz2AXX68yIwvUndjYfchQ' > ~/.config/localxpose/config.yml
 
-    - name: Run Ubuntu XFCE Desktop
-      run: |
-        docker run -d -p 6080:6080 accetto/ubuntu-vnc-xfce-g3
+      - name: Start tunnel to noVNC
+        run: |
+          nohup loclx tunnel http --to 127.0.0.1:6080 > tunnel.log 2>&1 &
+          sleep 5
+          cat tunnel.log | grep -i "https"
 
-    - name: Start tunnel with LocalXpose
-      run: |
-        nohup loclx tunnel http --to 127.0.0.1:6080 > tunnel.log 2>&1 &
-        sleep 10
-        cat tunnel.log
+      - name: Show tunnel URL
+        run: |
+          echo "👇👇👇 COPY YOUR LINK 👇👇👇"
+          cat tunnel.log | grep -i "https" || echo "Wait a bit then check again in logs"
+
+      - name: Keep Action Alive
+        run: sleep 3600
