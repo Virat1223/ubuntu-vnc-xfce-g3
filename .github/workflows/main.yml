@@ -1,37 +1,38 @@
-name: Ubuntu XFCE Desktop with LocalXpose (noVNC Access)
+name: Ubuntu XFCE Desktop in Browser (noVNC + LocalXpose)
 
 on:
   workflow_dispatch:
 
 jobs:
-  start-desktop:
+  launch:
     runs-on: ubuntu-latest
 
     steps:
-    - name: 🧱 Install LocalXpose
+    - name: 🧱 Setup LocalXpose
       run: |
-        sudo apt update
-        sudo apt install -y curl unzip
+        sudo apt update -y
+        sudo apt install curl unzip -y
         curl -s https://localxpose.io/get/linux -o lx
         chmod +x lx
         ./lx authtoken DgN6KiykIQ1cb7XvcoaYz2AXX68yIwvUndjYfchQ
 
-    - name: 🚀 Run Ubuntu VNC Docker
+    - name: 🐳 Start XFCE VNC Docker Container
       run: |
+        docker pull accetto/ubuntu-vnc-xfce-g3
         docker run -d \
-          -p 5901:5901 \
+          --name vnc-desktop \
           -p 6901:6901 \
-          -e VNC_PW='vir@at123' \
-          --name xfce-desktop \
+          -e VNC_PW="vir@at123" \
           accetto/ubuntu-vnc-xfce-g3
 
-    - name: 🌐 Expose noVNC via LocalXpose (Port 6901)
+    - name: 🌐 Start LocalXpose Tunnel for noVNC (Port 6901)
       run: |
         nohup ./lx tunnel http --port 6901 --region ap > lxlog.txt 2>&1 &
 
-    - name: 💤 Wait for tunnel to initialize
+    - name: 💤 Wait for Tunnel Initialization
       run: sleep 10
 
-    - name: 📡 Display Public noVNC URL
+    - name: 🔗 Show noVNC Public URL
       run: |
-        cat lxlog.txt | grep -i "https://" || echo "Tunnel failed. Check logs."
+        echo "Your public noVNC link:"
+        grep -o 'https://[a-zA-Z0-9.-]*\.loca\.lt' lxlog.txt || echo "Tunnel not found."
