@@ -1,36 +1,40 @@
-name: Ubuntu GUI with LocalXpose Tunnel
+name: Ubuntu XFCE Desktop with LocalXpose (noVNC Access)
 
-on: workflow_dispatch
+on:
+  workflow_dispatch:
 
 jobs:
-  ubuntu-desktop:
+  start-desktop:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Set up LocalXpose
+    - name: 🧱 Set up environment
       run: |
         sudo apt update
-        sudo apt install -y unzip curl wget xfce4 xfce4-goodies tightvncserver x11vnc dbus-x11
+        sudo apt install -y docker.io curl unzip
 
-        # Start dbus
-        sudo service dbus start
-
-        # Start VNC server (port 5900)
-        vncserver :0
-        export DISPLAY=:0
-
-        # Download LocalXpose binary dynamically
-        url=$(curl -sI https://api.localxpose.io/api/v2/downloads/lx-linux-amd64.zip | grep -i Location | awk '{print $2}' | tr -d '\r')
-        wget "$url" -O lx.zip
-        unzip lx.zip
+    - name: 🔐 Set LocalXpose Auth Token
+      run: |
+        curl -s https://localxpose.io/get/linux -o lx
         chmod +x lx
-        ./lx auth DgN6KiykIQ1cb7XvcoaYz2AXX68yIwvUndjYfchQ
-        ./lx tunnel tcp --port 5900 &
+        ./lx authtoken DgN6KiykIQ1cb7XvcoaYz2AXX68yIwvUndjYfchQ
 
-        # Install noVNC
-        git clone https://github.com/novnc/noVNC.git
-        cd noVNC
-        git clone https://github.com/novnc/websockify
-        ./utils/novnc_proxy --vnc localhost:5900 &
-        
-        echo "Everything is up! You can now access your desktop via LocalXpose TCP tunnel and noVNC."
+    - name: 🚀 Launch Docker Desktop (accetto/ubuntu-vnc-xfce-g3)
+      run: |
+        docker run -d \
+          -p 5901:5901 \
+          -p 6901:6901 \
+          -e VNC_PW='vir@at123' \
+          --name xfce-desktop \
+          accetto/ubuntu-vnc-xfce-g3
+
+    - name: 🌐 Expose noVNC (port 6901) via LocalXpose
+      run: |
+        nohup ./lx tunnel http --port 6901 --region ap > lxlog.txt 2>&1 &
+
+    - name: 💤 Wait for tunnel to initialize
+      run: sleep 10
+
+    - name: 📡 Show noVNC Public URL
+      run: |
+        cat lxlog.txt | grep -i "https://" || echo "Tunnel not started. Check token or region."
