@@ -23,9 +23,10 @@ jobs:
           sudo gdebi -n loclx.deb
 
       - name: Authenticate LocalXpose
-        run: |
-          loclx login --token DgN6KiykIQ1cb7XvcoaYz2AXX68yIwvUndjYfchQ
+        run: loclx login --token DgN6KiykIQ1cb7XvcoaYz2AXX68yIwvUndjYfchQ
 
-      - name: Start LocalXpose tunnel
+      - name: Start LocalXpose tunnel and keep alive
         run: |
-          loclx tunnel http --to 127.0.0.1:6080
+          loclx tunnel http --to 127.0.0.1:6080 > tunnel.log 2>&1 &
+          echo "Tunnel started. Waiting..."
+          tail -f /dev/null
