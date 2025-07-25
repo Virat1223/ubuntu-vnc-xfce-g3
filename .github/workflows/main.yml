@@ -1,53 +1,52 @@
-name: Ubuntu XFCE Desktop with noVNC
+name: Browser Ubuntu XFCE GUI with Video Editor
 
 on:
   workflow_dispatch:
 
 jobs:
-  gui-desktop:
+  run-desktop:
     runs-on: ubuntu-latest
-    timeout-minutes: 360
 
     steps:
-      - name: Install desktop, tools & dependencies
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Install packages
         run: |
           sudo apt update
-          sudo apt install -y xfce4 xfce4-goodies tightvncserver novnc websockify expect kdenlive firefox curl
+          sudo apt install -y xfce4 xfce4-goodies tightvncserver wget curl git software-properties-common
 
-      - name: Set VNC password automatically
+      - name: Setup VNC password
         run: |
           mkdir -p ~/.vnc
-          cat > set-vnc-password.exp <<'EOF'
-          spawn vncpasswd
-          expect "Password:"
-          send "kali1234\r"
-          expect "Verify:"
-          send "kali1234\r"
-          expect "view-only password (y/n)?"
-          send "n\r"
-          expect eof
-          EOF
-          chmod +x set-vnc-password.exp
-          ./set-vnc-password.exp
+          echo -e "passw0rd\npassw0rd\nn" | vncpasswd
           chmod 600 ~/.vnc/passwd
 
-      - name: Launch VNC and XFCE session
+      - name: Start VNC server
         run: |
-          vncserver :1 -geometry 1280x720 -depth 24
-          sleep 3
-          echo "VNC running on display :1"
+          vncserver :1
+          vncserver -kill :1
+          echo '#!/bin/bash
+          xrdb $HOME/.Xresources
+          startxfce4 &' > ~/.vnc/xstartup
+          chmod +x ~/.vnc/xstartup
+          vncserver :1 -geometry 1280x720
 
-      - name: Start noVNC front-end
+      - name: Download noVNC
         run: |
-          nohup websockify --web=/usr/share/novnc/ 6080 localhost:5901 > /dev/null 2>&1 &
-          sleep 2
+          git clone https://github.com/novnc/noVNC.git
+          git clone https://github.com/novnc/websockify noVNC/utils/websockify
 
-      - name: Install and start LocalXpose tunnel
+      - name: Start noVNC
         run: |
-          curl -L https://localxpose.io/downloads/localxpose_1.4.0_linux_amd64.tar.gz -o lx.tar.gz
-          tar -xzf lx.tar.gz
-          chmod +x localxpose
-          ./localxpose authtoken ${{ DgN6KiykIQ1cb7XvcoaYz2AXX68yIwvUndjYfchQ }}
-          ./localxpose tunnel http --port 6080 --subdomain ubuntu-gui-$GITHUB_RUN_ID > lx-url.txt &
-          sleep 8
-          cat lx-url.txt
+          nohup ./noVNC/utils/novnc_proxy --vnc localhost:5901 --listen 6080 &
+
+      - name: Install LocalXpose tunnel
+        run: |
+          wget https://api.localxpose.io/api/v2/downloads/lx-linux-amd64.zip
+          unzip lx-linux-amd64.zip
+          chmod +x lx
+
+      - name: Start LocalXpose tunnel (Port 6080)
+        run: |
+          ./lx tunnel http --port 6080 --auth="DgN6KiykIQ1cb7XvcoaYz2AXX68yIwvUndjYfchQ"
