@@ -1,35 +1,53 @@
-name: Ubuntu VNC XFCE Desktop
+name: Ubuntu XFCE Desktop with noVNC
 
-on: workflow_dispatch
+on:
+  workflow_dispatch:
 
 jobs:
-  ubuntu-vnc:
+  gui-desktop:
     runs-on: ubuntu-latest
+    timeout-minutes: 360
 
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
+      - name: Install desktop, tools & dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y xfce4 xfce4-goodies tightvncserver novnc websockify expect kdenlive firefox curl
 
-    - name: Setup Docker
-      uses: docker/setup-buildx-action@v3
+      - name: Set VNC password automatically
+        run: |
+          mkdir -p ~/.vnc
+          cat > set-vnc-password.exp <<'EOF'
+          spawn vncpasswd
+          expect "Password:"
+          send "kali1234\r"
+          expect "Verify:"
+          send "kali1234\r"
+          expect "view-only password (y/n)?"
+          send "n\r"
+          expect eof
+          EOF
+          chmod +x set-vnc-password.exp
+          ./set-vnc-password.exp
+          chmod 600 ~/.vnc/passwd
 
-    - name: Pull Docker Image
-      run: docker pull accetto/ubuntu-vnc-xfce-g3
+      - name: Launch VNC and XFCE session
+        run: |
+          vncserver :1 -geometry 1280x720 -depth 24
+          sleep 3
+          echo "VNC running on display :1"
 
-    - name: Run Ubuntu VNC Desktop with Kdenlive
-      run: |
-        docker run -d \
-          --name ubuntu-vnc \
-          -p 5901:5901 -p 6080:6080 \
-          -e VNC_PW='hacktheplanet' \
-          --shm-size=2g \
-          accetto/ubuntu-vnc-xfce-g3
+      - name: Start noVNC front-end
+        run: |
+          nohup websockify --web=/usr/share/novnc/ 6080 localhost:5901 > /dev/null 2>&1 &
+          sleep 2
 
-    - name: Install LocalXpose
-      run: |
-        curl -s https://api.localxpose.io/api/cli/install/linux -o lx
-        chmod +x lx
-
-    - name: Start LocalXpose Tunnel (noVNC)
-      run: |
-        ./lx tunnel http --port 6080 --subdomain yourcustomname
+      - name: Install and start LocalXpose tunnel
+        run: |
+          curl -L https://localxpose.io/downloads/localxpose_1.4.0_linux_amd64.tar.gz -o lx.tar.gz
+          tar -xzf lx.tar.gz
+          chmod +x localxpose
+          ./localxpose authtoken ${{ secrets.LOCALXPOSE_TOKEN }}
+          ./localxpose tunnel http --port 6080 --subdomain ubuntu-gui-$GITHUB_RUN_ID > lx-url.txt &
+          sleep 8
+          cat lx-url.txt
