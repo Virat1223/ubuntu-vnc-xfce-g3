@@ -1,36 +1,33 @@
-name: Ubuntu XFCE Desktop + LocalXpose (.deb method)
+name: Ubuntu XFCE GUI in Browser
 
 on: [workflow_dispatch]
 
 jobs:
-  ubuntu-vnc:
+  run-gui:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Start Ubuntu XFCE in Docker
+    - name: Start XFCE Docker
       run: |
-        docker run -d --name ubuntu-xfce -p 6901:6901 accetto/ubuntu-vnc-xfce-g3
+        docker run -d \
+          --name ubuntu-gui \
+          -p 6901:6901 \
+          accetto/ubuntu-vnc-xfce-g3
 
-    - name: Download and Install LocalXpose .deb
+    - name: Install LocalXpose
       run: |
         wget -O loclx.deb https://api.localxpose.io/api/downloads/loclx-linux-amd64.deb
-        sudo dpkg -i loclx.deb || sudo apt-get install -f -y
+        sudo dpkg -i loclx.deb
+        loclx version
 
-    - name: Fix PATH and Check loclx
+    - name: Auth LocalXpose
+      env:
+        LOCX_AUTH_TOKEN: DgN6KiykIQ1cb7XvcoaYz2AXX68yIwvUndjYfchQ
       run: |
-       export PATH=$PATH:/usr/local/bin:/usr/bin && \
-        which loclx || echo 'loclx not in PATH' && \
-          loclx version
+        loclx auth $LOCX_AUTH_TOKEN
 
-
-    - name: Authenticate LocalXpose
+    - name: Expose GUI on Web via LocalXpose
       run: |
-        loclx authtoken DgN6KiykIQ1cb7XvcoaYz2AXX68yIwvUndjYfchQ
-
-    - name: Start LocalXpose Tunnel
-      run: |
-        nohup loclx tunnel http --port 6901 --subdomain vipraxubuntu123 > tunnel.log 2>&1 &
-
-    - name: Keep Alive Forever
-      run: |
-        tail -f /dev/null
+        nohup loclx tunnel http --port 6901 --subdomain xfce-$RANDOM > loclx.log 2>&1 &
+        sleep 10
+        grep -o 'https://[^ ]*' loclx.log || echo "Tunnel not found"
