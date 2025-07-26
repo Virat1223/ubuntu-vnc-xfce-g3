@@ -1,33 +1,43 @@
-name: Ubuntu XFCE GUI in Browser
+name: Ubuntu XFCE + Kdenlive + LocalXpose
 
 on: [workflow_dispatch]
 
 jobs:
-  run-gui:
+  run-vnc:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Start XFCE Docker
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Setup Docker
       run: |
-        docker run -d \
-          --name ubuntu-gui \
+        sudo apt update
+        sudo apt install docker.io -y
+        sudo systemctl start docker
+        sudo systemctl enable docker
+
+    - name: Run Ubuntu XFCE Container
+      run: |
+        docker run -d --name ubuntu-xfce \
           -p 6901:6901 \
           accetto/ubuntu-vnc-xfce-g3
 
     - name: Install LocalXpose
       run: |
-        wget -O loclx.deb https://api.localxpose.io/api/downloads/loclx-linux-amd64.deb
+        curl -L "https://api.localxpose.io/api/downloads/loclx-linux-amd64.deb" -o loclx.deb
         sudo dpkg -i loclx.deb
         loclx version
 
-    - name: Auth LocalXpose
-      env:
-        LOCX_AUTH_TOKEN: DgN6KiykIQ1cb7XvcoaYz2AXX68yIwvUndjYfchQ
+    - name: Authenticate LocalXpose
       run: |
-        loclx auth $LOCX_AUTH_TOKEN
+        loclx auth DgN6KiykIQ1cb7XvcoaYz2AXX68yIwvUndjYfchQ
 
-    - name: Expose GUI on Web via LocalXpose
+    - name: Tunnel VNC Port with LocalXpose
       run: |
-        nohup loclx tunnel http --port 6901 --subdomain xfce-$RANDOM > loclx.log 2>&1 &
-        sleep 10
-        grep -o 'https://[^ ]*' loclx.log || echo "Tunnel not found"
+        nohup loclx tunnel tcp --port 6901 > tunnel.log 2>&1 &
+        sleep 15
+        cat tunnel.log
+
+    - name: Wait Forever
+      run: sleep 3600
